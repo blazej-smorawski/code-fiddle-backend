@@ -308,6 +308,7 @@ dependencies = [
  "json",
  "serde",
  "serde_json",
+ "subprocess",
 ]
 
 [[package]]
@@ -911,6 +912,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "subprocess"
+version = "0.2.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0c2e86926081dda636c546d8c5e641661049d7562a68f5488be4a1f7f66f6086"
+dependencies = [
+ "libc",
+ "winapi",
+]
+
+[[package]]
 name = "syn"
 version = "1.0.101"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -956,16 +967,15 @@ checksum = "cda74da7e1a664f795bb1f8a87ec406fb89a02522cf6e50620d016add6dbbf5c"
 
 [[package]]
 name = "tokio"
-version = "1.21.1"
+version = "1.21.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0020c875007ad96677dcc890298f4b942882c5d4eb7cc8f439fc3bf813dc9c95"
+checksum = "a9e03c497dc955702ba729190dc4aac6f2a0ce97f913e5b1b5912fc5039d9099"
 dependencies = [
  "autocfg",
  "bytes",
  "libc",
  "memchr",
  "mio",
- "once_cell",
  "parking_lot",
  "pin-project-lite",
  "signal-hook-registry",
