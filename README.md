@@ -19,5 +19,5 @@ safe and consistent environment. Also, I want to keep it as simple as possible.
 The project is in very (very) early phase. These are milestones for version 0.0.1:
 
 - [X] reading JSON input from front-end
-- [ ] running user code in docker container
+- [X] running user code in podman container
 - [ ] code evaluation
