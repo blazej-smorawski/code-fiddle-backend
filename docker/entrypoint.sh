@@ -2,6 +2,6 @@
 
 # Entry point for container running !unsafe! user code
 
-$file_name = "code.py"
+file_name="code.py"
 
-python "/code/$file_name"
+python "/code/${file_name}"
