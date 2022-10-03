@@ -28,7 +28,7 @@ async fn send_code(item: web::Json<UserCode>, req: HttpRequest) -> HttpResponse 
      * Write code sent by the user to a file
      */
     let dir = "./usr/".to_string() + username;
-    let volume = format!("{}{}", dir, ":/code:r");
+    let volume = format!("{}{}", dir, ":/code:ro");
     create_dir(dir);
 
     let filepath = "./usr/".to_string() + username + "/code.py"; /* It's not done properly I think */
