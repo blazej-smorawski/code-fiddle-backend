@@ -28,7 +28,7 @@ async fn send_code(item: web::Json<UserCode>, req: HttpRequest) -> HttpResponse 
      * Write code sent by the user to a file
      */
     let dir = "./usr/".to_string() + username;
-    let volume = format!("{}{}", dir, ":/code:rw");
+    let volume = format!("{}{}", dir, ":/code:r");
     create_dir(dir);
 
     let filepath = "./usr/".to_string() + username + "/code.py"; /* It's not done properly I think */
@@ -47,8 +47,8 @@ async fn send_code(item: web::Json<UserCode>, req: HttpRequest) -> HttpResponse 
 
     let process = Exec::cmd("podman")
         .arg("run")
-        .arg("-m")
-        .arg("256m")
+        //.arg("-m")
+        //.arg("256m")
         .arg("--timeout")
         .arg("2")
         .arg("-v")
