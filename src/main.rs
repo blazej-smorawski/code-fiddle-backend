@@ -1,7 +1,7 @@
 use actix_web::{web, App, HttpRequest, HttpResponse, HttpServer};
 use actix_cors::Cors;
 use serde::{Deserialize, Serialize};
-use std::{fs::{OpenOptions, create_dir}, io::Write};
+use std::{fs::{OpenOptions, create_dir}, io::{Write, ErrorKind}};
 use subprocess::{Exec, Redirection};
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -53,7 +53,12 @@ async fn send_code(item: web::Json<UserCode>, _: HttpRequest) -> HttpResponse {
     let create_dir_result = create_dir(dir);
     match create_dir_result {
         Ok(_) => (),
-        Err(_) => return HttpResponse::Ok().json(ErrorOutput::new(-1,"Could not create users directory")),
+        Err(error) => match error.kind() {
+            ErrorKind::AlreadyExists=> (),
+            _ => {
+                return HttpResponse::Ok().json(ErrorOutput::new(-1,"Could not create users directory"));
+            }
+        }
     }
 
     /*
