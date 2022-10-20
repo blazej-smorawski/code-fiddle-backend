@@ -6,14 +6,35 @@ use subprocess::{Exec, Redirection};
 
 #[derive(Debug, Serialize, Deserialize)]
 struct UserCode {
+    stdin: Vec<String>,
     code: Vec<String>,
 }
+
+#[derive(Debug, Serialize, Deserialize)]
+struct TestCase {
+    stdin: Vec<String>,
+    stdout: Vec<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct TestCode {
+    code: Vec<String>,
+    test_cases: Vec<TestCase>
+}
+
 
 #[derive(Debug, Serialize, Deserialize)]
 struct CodeOutput {
     stdout: Vec<String>,
     stderr: Vec<String>,
 }
+
+#[derive(Debug, Serialize, Deserialize)]
+struct TestOutput {
+    passed: u32,
+    failed: u32,
+}
+
 
 #[derive(Debug, Serialize, Deserialize)]
 struct ErrorOutput {
@@ -27,15 +48,43 @@ impl ErrorOutput {
     }
 }
 
-/// This handler uses json extractor with limit
-async fn send_code(item: web::Json<UserCode>, _: HttpRequest) -> HttpResponse {
+fn write_whole_file(filepath: String, content: &Vec<String>) -> Result<() ,HttpResponse> {
+    let file_result = OpenOptions::new()
+        .read(true)
+        .write(true)
+        .create(true)
+        .open(filepath);
+    let mut file = match file_result {
+        Ok(file) => file,
+        Err(_) => return Err(HttpResponse::Ok().json(ErrorOutput::new(-2,"Could not open file with users code"))),
+    };
 
     /*
-     * TODO: Add session handling in order to get 
-     * proper usernames
+     * Clear all the contents of the file with users code 
      */
-    let username = "testuser";
+    let truncate_result = file.set_len(0);
+    match truncate_result {
+        Ok(_) => (),
+        Err(_) => return Err(HttpResponse::Ok().json(ErrorOutput::new(-3,"Could not clear contents of users file"))),
+    };
 
+    /*
+     * Write code sent by a user into the file in his directory.
+     * Code is sent as an array of strings, so we must join it
+     * with newline character between before writing to the file.
+     */
+    let write_result = file.write_all(content.join("\n").as_bytes());
+    match write_result {
+        Ok(_) => (),
+        Err(_) => return Err(HttpResponse::Ok().json(ErrorOutput::new(-4,"Could not write users code into users file"))),
+    };
+    Ok(())
+}
+
+/*
+ * 
+ */
+fn run_code(username: &str, code: &Vec<String>, stdin: &Vec<String>) -> Result<(String, String), HttpResponse> {
     /*
      * Create path to users directory where his code will be stored
      * and create argument string for a volume that is passed to
@@ -56,43 +105,29 @@ async fn send_code(item: web::Json<UserCode>, _: HttpRequest) -> HttpResponse {
         Err(error) => match error.kind() {
             ErrorKind::AlreadyExists=> (),
             _ => {
-                return HttpResponse::Ok().json(ErrorOutput::new(-1,"Could not create users directory"));
+                return Err(HttpResponse::Ok().json(ErrorOutput::new(-1,"Could not create users directory")));
             }
         }
     }
 
     /*
-     * Open or create file for users code
+     * Write users code do code.py
      */
-    let filepath = "./usr/".to_string() + username + "/code.py"; /* It's not done properly I think */
-    let file_result = OpenOptions::new()
-        .read(true)
-        .write(true)
-        .create(true)
-        .open(filepath);
-    let mut file = match file_result {
-        Ok(file) => file,
-        Err(_) => return HttpResponse::Ok().json(ErrorOutput::new(-2,"Could not open file with users code")),
+    let code_path = "./usr/".to_string() + username + "/code.py"; /* It's not done properly I think */
+    let write_code_result = write_whole_file(code_path, code);
+    match write_code_result {
+        Ok(_) => (),
+        Err(value) => return Err(value),
     };
 
     /*
-     * Clear all the contents of the file with users code 
+     * Create a file containing stdin supplied from user or test case
      */
-    let truncate_result = file.set_len(0);
-    match truncate_result {
+    let stdin_path = "./usr/".to_string() + username + "/stdin"; /* It's not done properly I think */
+    let write_stdin_result = write_whole_file(stdin_path, stdin);
+    match write_stdin_result {
         Ok(_) => (),
-        Err(_) => return HttpResponse::Ok().json(ErrorOutput::new(-3,"Could not clear contents of users file")),
-    };
-
-    /*
-     * Write code sent by a user into the file in his directory.
-     * Code is sent as an array of strings, so we must join it
-     * with newline character between before writing to the file.
-     */
-    let write_result = file.write_all(item.code.join("\n").as_bytes());
-    match write_result {
-        Ok(_) => (),
-        Err(_) => return HttpResponse::Ok().json(ErrorOutput::new(-4,"Could not write users code into users file")),
+        Err(value) => return Err(value),
     };
 
     /*
@@ -117,13 +152,30 @@ async fn send_code(item: web::Json<UserCode>, _: HttpRequest) -> HttpResponse {
         .capture();
     let process = match process_result {
         Ok(process) => process,
-        Err(_) => return HttpResponse::Ok().json(ErrorOutput::new(-5,"Could not run users container")),
+        Err(_) => return Err(HttpResponse::Ok().json(ErrorOutput::new(-5,"Could not run users container"))),
     };
 
     let stdout = process.stdout_str();
     let stderr = process.stdout_str();
     println!("STDOUT:\n{stdout}");
     println!("STDERR:\n{stdout}");
+    
+    Ok((stdout, stderr))
+}
+
+/// This handler uses json extractor with limit
+async fn send_code(item: web::Json<UserCode>, _: HttpRequest) -> HttpResponse {
+
+    /*
+     * TODO: Add session handling in order to get 
+     * proper usernames
+     */
+    let username = "testuser";
+
+    let (stdout, stderr) = match run_code(username, &item.code, &item.stdin) {
+        Ok(value) => value,
+        Err(value) => return value,
+    };
 
     /*
      * We return the code as a list of strings, so we must split it
@@ -137,11 +189,54 @@ async fn send_code(item: web::Json<UserCode>, _: HttpRequest) -> HttpResponse {
     HttpResponse::Ok().json(output) // <- send json response
 }
 
+/*
+ * TODO: REMEMBER THAT TEST CASES PROVIDED BY USER ARE NOT TO BE TRUSTED!!!
+ */
+async fn test_code(item: web::Json<TestCode>, _: HttpRequest) -> HttpResponse {
+
+    /*
+     * TODO: Add session handling in order to get 
+     * proper usernames
+     */
+    let username = "testuser";
+
+    let mut output = TestOutput {
+        passed: 0,
+        failed: 0,
+    };
+
+    for test_case in &item.test_cases {
+        let (stdout, stderr) = match run_code(username, &item.code, &test_case.stdin) {
+            Ok(value) => value,
+            Err(value) => return value,
+        };
+
+        let code_output = CodeOutput {
+            stdout: stdout.split("\n").map(str::to_string).collect(),
+            stderr: stderr.split("\n").map(str::to_string).collect(),
+        };
+
+        /*
+         * Compare users code stdout to test case stdout
+         */
+        let matching = test_case.stdout.iter().zip(&code_output.stdout).filter(|&(a, b)| a == b).count() == test_case.stdout.len();
+        if matching {
+            output.passed += 1;
+        } else {
+            output.failed += 1;
+        }
+    }
+
+    HttpResponse::Ok().json(output) // <- send json response
+}
+
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     HttpServer::new(|| {
         let cors = Cors::permissive();
-        App::new().wrap(cors).service(web::resource("/send_code").route(web::post().to(send_code)))
+        App::new().wrap(cors)
+            .service(web::resource("/send_code").route(web::post().to(send_code)))
+            .service(web::resource("/test_code").route(web::post().to(test_code)))
     })
     .bind(("0.0.0.0", 8080))?
     .run()

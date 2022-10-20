@@ -4,4 +4,4 @@
 
 file_name="code.py"
 
-python "/code/${file_name}"
+python "/code/${file_name}" < "/code/stdin"
